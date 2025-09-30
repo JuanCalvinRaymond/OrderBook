@@ -411,9 +411,6 @@ int main()
   OrderBook orderBook;
   std::uint64_t orderId = 1;
 
-  orderBook.AddOrder(std::make_shared<Order>(OrderType::GoodTillCancel, orderId, Side::Buy, 100, 50));
-  orderBook.AddOrder(std::make_shared<Order>(OrderType::GoodTillCancel, 2, Side::Sell, 200, 50));
-
   int input;
   std::string stream;
 
