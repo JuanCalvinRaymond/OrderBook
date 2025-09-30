@@ -11,7 +11,6 @@
 #include <iterator>
 #include <numeric>
 #include <sstream>
-#include "main.h"
 
 #define GRAVITY = 9.8f;
 #ifdef NDEBUG
@@ -246,6 +245,17 @@ public:
     return OrderBookLevelInfos{bidInfos, askInfos};
   }
 
+  std::vector<OrderModify> GetOrderLists()
+  {
+    std::vector<OrderModify> OrderModifies;
+    for (auto &&[id, order] : m_orders)
+    {
+      OrderPointer orderPointer = order.m_order;
+      OrderModifies.push_back(OrderModify{id, orderPointer->GetSide(), orderPointer->GetPrice(), orderPointer->GetInitialQuantity()});
+    }
+    return OrderModifies;
+  }
+
 private:
   struct OrderEntry
   {
@@ -384,39 +394,59 @@ Side ToSide(int value)
   }
 }
 
+enum class Command
+{
+  Invalid = -1,
+  EnterOrder = 1,
+  CancelOrder,
+  DisplayOrderList,
+  DisplayOrderbook,
+  Exit
+};
+
 int main()
 {
+
   ClearScreen();
   OrderBook orderBook;
   std::uint64_t orderId = 1;
 
-  int command;
+  orderBook.AddOrder(std::make_shared<Order>(OrderType::GoodTillCancel, orderId, Side::Buy, 100, 50));
+  orderBook.AddOrder(std::make_shared<Order>(OrderType::GoodTillCancel, 2, Side::Sell, 200, 50));
+
+  int input;
   std::string stream;
+
   while (true)
   {
     std::cout << "Enter a command: " << std::endl;
     std::cout << "1) Enter an order" << std::endl;
     std::cout << "2) Cancel an order" << std::endl;
-    std::cout << "3) Display orderbook" << std::endl;
-    std::cout << "4) Exit" << std::endl;
+    std::cout << "3) Display entry history" << std::endl;
+    std::cout << "4) Display orderbook" << std::endl;
+    std::cout << "5) Exit" << std::endl;
 
     std::getline(std::cin, stream);
     std::istringstream buffer(stream);
 
-    if (!(buffer >> command))
+    if (!(buffer >> input))
     {
       ClearScreen();
       std::cerr << "Invalid Input" << std::endl;
       continue;
     }
-    if (command == 4)
+
+    ClearScreen();
+
+    Command command = static_cast<Command>(input);
+    if (command == Command::Exit)
     {
       break;
     }
-    ClearScreen();
+
     switch (command)
     {
-    case 1:
+    case Command::EnterOrder:
     {
       std::cout << "Enter orderType, side, price, quantity: " << std::endl;
       std::cout << "OrderType: 1) GoodTillCancel, Side: 1) Buy" << std::endl;
@@ -439,7 +469,7 @@ int main()
       std::cout << "Added!" << std::endl;
     }
     break;
-    case 2:
+    case Command::CancelOrder:
     {
       std::cout << "Enter order id your want to cancel:" << std::endl;
       std::uint64_t cancelId;
@@ -451,7 +481,30 @@ int main()
       std::cout << "Canceled!" << std::endl;
     }
     break;
-    case 3:
+    case Command::DisplayOrderList:
+    {
+      std::vector<OrderModify> orderList = orderBook.GetOrderLists();
+      if (orderList.empty())
+      {
+        std::cout << "No entry have been entered yet!" << std::endl;
+        std::cout << "Press enter to continue" << std::endl;
+        std::cin.get();
+        ClearScreen();
+        break;
+      }
+      auto sideToStr = [](Side side)
+      { return static_cast<int>(side) == 1 ? "Buy" : "Sell"; };
+
+      for (auto &&iterator = orderList.begin(); iterator != orderList.end(); iterator++)
+      {
+        std::cout << "Id: " << (*iterator).GetOrderId() << " Side: " << sideToStr((*iterator).GetSide()) << " Price: " << (*iterator).GetPrice() << " Quantity: " << (*iterator).GetQuantity() << std::endl;
+      }
+      std::cout << "Press enter to continue" << std::endl;
+      std::cin.get();
+      ClearScreen();
+    }
+    break;
+    case Command::DisplayOrderbook:
     {
       OrderBookLevelInfos levelInfos = orderBook.GetOrderInfos();
       LevelInfos bids = levelInfos.GetBids();
@@ -459,12 +512,12 @@ int main()
       std::cout << "Buy:" << std::endl;
       for (auto &&info : bids)
       {
-        std::cout << "Price: " << info.m_price << " Quantity: " << info.m_quantity << std::endl;
+        std::cout << "\x1b[32mPrice: " << info.m_price << " Quantity: " << info.m_quantity << "\x1b[m" << std::endl;
       }
       std::cout << "Sell:" << std::endl;
       for (auto &&info : asks)
       {
-        std::cout << info.m_price << " " << info.m_quantity << std::endl;
+        std::cout << "\x1b[31mPrice: " << info.m_price << " Quantity: " << info.m_quantity << "\x1b[m" << std::endl;
       }
       std::cout << "Press enter to continue" << std::endl;
       std::cin.get();
